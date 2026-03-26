@@ -123,24 +123,89 @@
             document.getElementById('progress-modal').style.display = 'none';
         };
 
+        const LEVELS_DATA = [
+            { title: "வளர்ச்சி நிலை 1", subtitle: "Getting Started", courses: ["யோகா அறிமுகம்", "சுவாசப் பயிற்சி 1", "எளிய ஆசனங்கள் 1", "உடல் தளர்வு", "மன ஒருமைப்பாடு"] },
+            { title: "வளர்ச்சி நிலை 2", subtitle: "Basic Asanas", courses: ["ஆசனங்கள் 2", "சுவாசம் 2", "சூர்ய நமஸ்காரம்", "முத்திரைகள்", "தியானம் 1"] },
+            { title: "வளர்ச்சி நிலை 3", subtitle: "Breathing Mastery", courses: ["பிராணாயாமம் 1", "நாடி சுத்தி", "கபாலபதி", "குளிர்ச்சி சுவாசங்கள்", "நுரையீரல் பயிற்சி"] },
+            { title: "வளர்ச்சி நிலை 4", subtitle: "Sun Salutation", courses: ["12 நிலைகள்", "மந்திர யோகம்", "வேகமான சூர்ய நமஸ்காரம்", "நெகிழ்வுத் தன்மை", "சக்தி ஓட்டம்"] },
+            { title: "வளர்ச்சி நிலை 5", subtitle: "Balance & Focus", courses: ["ஒற்றை கால் ஆசனங்கள்", "பார்வை ஒருமைப்பாடு", "நரம்பு மண்டலம்", "முதுகுத்தண்டு பலம்", "மன அமைதி"] },
+            { title: "வளர்ச்சி நிலை 6", subtitle: "Strength Building", courses: ["தசை பலம்", "உடல் உறுதி", "தோள்பட்டை பயிற்சி", "வயிற்றுப் பகுதி", "சகிப்புத்தன்மை"] },
+            { title: "வளர்ச்சி நிலை 7", subtitle: "Flexibility Plus", courses: ["முதுகு வளைவு", "கால் நீட்டிப்பு", "இடுப்பு பயிற்சி", "முழு உடல் நெகிழ்வு", "தளர்வு நிலைகள்"] },
+            { title: "வளர்ச்சி நிலை 8", subtitle: "Advanced Poses", courses: ["சிரசாசனம்", "மயூராசனம்", "கடினமான ஆசனங்கள்", "உயர்தர மூச்சுப் பயிற்சி", "ஆழ்நிலை தியானம்"] },
+            { title: "வளர்ச்சி நிலை 9", subtitle: "Deep Meditation", courses: ["சக்கர தியானம்", "ஒலி அதிர்வுகள்", "மௌன யோகம்", "உள் உணர்வு", "ஞான யோகம்"] },
+            { title: "வளர்ச்சி நிலை 10", subtitle: "Inner Peace", courses: ["முழுமையான ஆரோக்கியம்", "வாசி யோகம்", "பேரின்ப நிலை", "இயற்கை வாழ்வியல்", "குரு உபதேசம்"] }
+        ];
+
         function getStudentProgress(username) {
             const data = localStorage.getItem('iyc_progress_' + username);
-            return data ? JSON.parse(data) : new Array(10).fill(false);
+            let progress;
+            try {
+                progress = data ? JSON.parse(data) : [];
+            } catch(e) { progress = []; }
+
+            if (!Array.isArray(progress) || progress.length < 10 || typeof progress[0] === 'boolean') {
+                progress = [];
+                for (let i = 0; i < 10; i++) {
+                    progress.push({ level: i, courses: [false, false, false, false, false] });
+                }
+            }
+            return progress;
         }
+
+        let _activeAdminUser = null;
+        let _activeAdminLvl = null;
 
         function renderProgressGrid(username) {
+            _activeAdminUser = username;
             const progress = getStudentProgress(username);
             const grid = document.getElementById('progress-grid');
-            const doneCount = progress.filter(x => x).length;
-            document.getElementById('p-count').textContent = doneCount + ' / 10 Levels Completed';
+            const levelsDone = progress.filter(lvl => lvl.courses.every(c => c)).length;
+            document.getElementById('p-count').textContent = levelsDone + ' / 10 Levels Fully Completed';
 
-            grid.innerHTML = progress.map((done, idx) => `
-                <div class="level-box ${done ? 'done' : ''}" style="cursor:default">
+            grid.innerHTML = progress.map((lvl, idx) => {
+                const isDone = lvl.courses.every(c => c);
+                const coursesDone = lvl.courses.filter(c => c).length;
+                return `
+                <div class="level-box ${isDone ? 'done' : ''}" onclick="openAdminCourseDetail(${idx})">
                     <div class="level-num">${idx + 1}</div>
-                    <div class="level-status">${done ? '✅ Done' : 'Pending'}</div>
+                    <div class="level-status">${isDone ? '✅ Done' : coursesDone + '/5 Done'}</div>
+                </div>
+            `;
+            }).join('');
+        }
+
+        window.openAdminCourseDetail = function(idx) {
+            _activeAdminLvl = idx;
+            const progress = getStudentProgress(_activeAdminUser);
+            const lvl = progress[idx];
+            const info = LEVELS_DATA[idx];
+
+            const modal = document.getElementById('admin-course-modal');
+            document.getElementById('ac-title').textContent = (idx+1) + ". " + info.title;
+            
+            const list = document.getElementById('ac-list');
+            list.innerHTML = info.courses.map((cName, cIdx) => `
+                <div class="ac-item ${lvl.courses[cIdx] ? 'done' : ''}" onclick="toggleAdminCourse(${cIdx})">
+                    <span>${cName}</span>
+                    <span>${lvl.courses[cIdx] ? '✅' : '⏳'}</span>
                 </div>
             `).join('');
-        }
+
+            modal.style.display = 'flex';
+        };
+
+        window.toggleAdminCourse = function(cIdx) {
+            const progress = getStudentProgress(_activeAdminUser);
+            progress[_activeAdminLvl].courses[cIdx] = !progress[_activeAdminLvl].courses[cIdx];
+            localStorage.setItem('iyc_progress_' + _activeAdminUser, JSON.stringify(progress));
+            
+            openAdminCourseDetail(_activeAdminLvl);
+            renderProgressGrid(_activeAdminUser);
+        };
+
+        window.closeAdminCourseModal = function() {
+            document.getElementById('admin-course-modal').style.display = 'none';
+        };
 
         function renderAttendance(list) {
             const tbody = document.getElementById('att-tbody');
@@ -239,6 +304,70 @@
 
         window.loadTodayAttendance = loadTodayAttendance;
         window.refreshStudents = loadAllStudents;
+
+        window.loadRequests = function() {
+            const requests = JSON.parse(localStorage.getItem('iyc_requests') || '[]');
+            const tbody = document.getElementById('req-tbody');
+            if (!tbody) return;
+            if (requests.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:rgba(0,0,0,0.3)">No pending requests</td></tr>';
+                return;
+            }
+            // Only show pending
+            const pending = requests.filter(r => r.status === 'pending');
+            if (pending.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:rgba(0,0,0,0.3)">All requests processed</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = pending.map(r => `
+                <tr>
+                    <td>${new Date(r.at).toLocaleString('en-IN')}</td>
+                    <td><strong>${r.name}</strong><br><small>${r.username}</small></td>
+                    <td>Level ${r.lvl + 1}</td>
+                    <td>${r.cName}</td>
+                    <td><span style="color:${r.type === 'edit' ? '#ef4444' : '#10b981'};font-weight:600">${r.type === 'edit' ? '🔄 Edit/Reset' : '📌 New Mark'}</span></td>
+                    <td>
+                        <button class="btn-approve" onclick="approveAdminRequest(${r.id})">✅ Approve</button>
+                        <button class="btn-reject" onclick="rejectAdminRequest(${r.id})">❌ Reject</button>
+                    </td>
+                </tr>
+            `).join('');
+        };
+
+        window.approveAdminRequest = function(id) {
+            let requests = JSON.parse(localStorage.getItem('iyc_requests') || '[]');
+            const req = requests.find(r => r.id === id);
+            if (req) {
+                // Update student progress
+                const progress = getStudentProgress(req.username);
+                if (req.type === 'edit') {
+                   progress[req.lvl].courses[req.c] = false; // Reset to allow them to re-mark
+                } else {
+                   progress[req.lvl].courses[req.c] = true;
+                }
+                localStorage.setItem('iyc_progress_' + req.username, JSON.stringify(progress));
+                
+                // Mark request as approved
+                req.status = 'approved';
+                localStorage.setItem('iyc_requests', JSON.stringify(requests));
+                
+                loadRequests();
+                loadAllStudents();
+                showAdminMsg(req.type === 'edit' ? 'Success: Course reset (Unlocked) for student!' : 'Success: Course marked as done!');
+            }
+        };
+
+        window.rejectAdminRequest = function(id) {
+            let requests = JSON.parse(localStorage.getItem('iyc_requests') || '[]');
+            const req = requests.find(r => r.id === id);
+            if (req) {
+                req.status = 'rejected';
+                localStorage.setItem('iyc_requests', JSON.stringify(requests));
+                loadRequests();
+                showAdminMsg('Request rejected.');
+            }
+        };
 
         function showLoader() { document.getElementById('loader').style.display = 'flex'; }
         function hideLoader() { document.getElementById('loader').style.display = 'none'; }
@@ -685,6 +814,36 @@
             cursor: pointer;
         }
 
+        /* ADMIN COURSE DETAIL */
+        .ac-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .ac-box {
+            background: white;
+            border-radius: 24px;
+            padding: 32px;
+            max-width: 400px;
+            width: 90%;
+        }
+        .ac-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .ac-item.done {
+            background: #f0fdf4;
+            color: #166534;
+        }
+
         .att-present {
             background: var(--sandal-deep);
             color: #000000;
@@ -707,6 +866,24 @@
             .topbar {
                 padding: 12px 16px;
             }
+        }
+
+        .btn-approve {
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 4px;
+        }
+        .btn-reject {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -766,6 +943,7 @@
                 <button class="tab-btn active" onclick="switchAdminTab('tab-att',this)">✅ Attendance</button>
                 <button class="tab-btn" onclick="switchAdminTab('tab-students',this)">👥 Students</button>
                 <button class="tab-btn" onclick="switchAdminTab('tab-payments',this)">💳 Payments</button>
+                <button class="tab-btn" onclick="switchAdminTab('tab-requests',this);loadRequests()">⏳ Requests</button>
             </div>
 
             <!-- TAB: ATTENDANCE -->
@@ -860,6 +1038,34 @@
                 </div>
             </div>
 
+            <!-- TAB: REQUESTS -->
+            <div id="tab-requests" class="tab-content">
+                <div class="table-card">
+                    <div class="table-header">
+                        <h3>⏳ Pending Progress Requests</h3>
+                        <button onclick="loadRequests()" style="padding:6px 12px;border-radius:50px;border:1px solid #ddd;cursor:pointer">🔄 Refresh</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Student</th>
+                                <th>Level</th>
+                                <th>Course</th>
+                                <th>Type</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="req-tbody">
+                            <tr>
+                                <td colspan="5" style="text-align:center;padding:30px;color:rgba(0,0,0,0.3)">
+                                    Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div><!-- /admin-body -->
     </div><!-- /admin-page -->
 
@@ -876,12 +1082,18 @@
     <div id="progress-modal" class="p-modal">
         <div class="p-box">
             <h2 id="p-student-name">Student Name</h2>
-            <p>10 Levels Completion Tracking</p>
-            <div id="p-count" style="font-weight: 600; color: #000; margin-bottom: 12px;">0 / 10 Levels</div>
-            <div class="progress-grid" id="progress-grid">
-                <!-- Levels 1-10 will be here -->
-            </div>
-            <button class="btn-p-close" onclick="closeProgressModal()">Close & Refresh</button>
+            <p id="p-count">0 / 10 Levels Completed</p>
+            <div id="progress-grid" class="progress-grid"></div>
+            <button class="btn-p-close" onclick="closeProgressModal()">Close</button>
+        </div>
+    </div>
+
+    <!-- ADMIN COURSE MODAL -->
+    <div id="admin-course-modal" class="ac-modal">
+        <div class="ac-box">
+            <h3 id="ac-title" style="margin-bottom:16px;font-family:Playfair Display,serif">Level Details</h3>
+            <div id="ac-list" style="margin-bottom:20px"></div>
+            <button class="btn-p-close" style="width:100%" onclick="closeAdminCourseModal()">Back to Levels</button>
         </div>
     </div>
 </body>
